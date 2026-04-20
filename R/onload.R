@@ -17,19 +17,35 @@
   }, silent = TRUE)
 }
 
-
-# Set a default ws-proxy server for WebR
 .onLoad <- function(libname, pkgname){
   if(grepl('emscripten', R.version[['platform']])){
-    proxy <- Sys.getenv('ALL_PROXY')
-    if(proxy == '' || proxy == "socks5h://localhost:8580"){
-      try({
-        wsproxy <- readLines('https://jeroen.github.io/curl/wsproxy')[1]
-        if(grepl('^socks5h://', wsproxy)){
-          Sys.setenv(ALL_PROXY = wsproxy)
-        }
-      })
-    }
+    set_default_wsproxy()
   }
 }
 
+# Set a default ws-proxy server for WebR
+# Note socks proxies are secure as the https connections going over the socks5
+# are still encrypted and verified.
+set_default_wsproxy <- function(){
+  proxy <- Sys.getenv('ALL_PROXY')
+
+  # TODO: fix this unfortunate default envvar in webR
+  if(proxy == "socks5h://localhost:8580"){
+    Sys.unsetenv('ALL_PROXY')
+    proxy <- ""
+  }
+
+  if(proxy == ''){
+    try({
+      # Note the websocket runs wss (port 443) but inside we use plain http:// for curl
+      h <- new_handle(connecttimeout = 2)
+      req <- curl_fetch_memory("http://get-ws-proxy.jeroenooms.workers.dev:443/", handle = h)
+      if(req$status == 200){
+        wsproxy <- rawToChar(req$content)
+        if(grepl('^socks5h://', wsproxy)){
+          Sys.setenv(ALL_PROXY = wsproxy)
+        }
+      }
+    })
+  }
+}

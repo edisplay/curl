@@ -16,3 +16,20 @@
     }
   }, silent = TRUE)
 }
+
+
+# Set a default ws-proxy server for WebR
+.onLoad <- function(libname, pkgname){
+  if(grepl('emscripten', R.version[['platform']])){
+    proxy <- Sys.getenv('ALL_PROXY')
+    if(proxy == '' || proxy == "socks5h://localhost:8580"){
+      try({
+        wsproxy <- readLines('https://jeroen.github.io/curl/wsproxy')[1]
+        if(grepl('^socks5h://', wsproxy)){
+          Sys.setenv(ALL_PROXY = wsproxy)
+        }
+      })
+    }
+  }
+}
+
